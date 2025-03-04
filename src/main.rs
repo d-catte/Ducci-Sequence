@@ -1,7 +1,7 @@
 #![feature(string_remove_matches)]
 #![feature(integer_atomics)]
 
-use bigdecimal::BigDecimal;
+use bigdecimal::{BigDecimal, One};
 use chrono::Local;
 use num_bigint::{BigUint, ToBigInt};
 use progress_bar::{
@@ -14,13 +14,14 @@ use std::io::Write;
 use std::ops::{Add, Div, Mul, MulAssign, Sub};
 use std::sync::atomic::AtomicU128;
 use std::sync::{Arc, LazyLock, Mutex};
-use std::{fs, i32, thread};
+use std::{fs, i32, thread, u32};
+use progress_bar::pb::ProgressBar;
 use text_io::read;
 
 const USE_GOLDEN_RATIO: bool = true;
 const MAX_TRIB_INDEX: i32 = 72;
-const MAX_TRIB_INDEX_BIG_INT: u128 = u16::MAX as u128;
-const PRECISION_DECIMALS: u64 = 200;
+const MAX_TRIB_INDEX_BIG_INT: u128 = (u16::MAX as u32 * 2u32) as u128;
+const PRECISION_DECIMALS: u64 = 100;
 
 fn main() {
     print!("Select Part (A/B)");
@@ -299,14 +300,59 @@ fn generate_trib_golden_ratio_big_int(start_index: u128) -> Vec<BigUint> {
     return_vals
 }
 
-fn power(input: &BigDecimal, mut power: usize) -> BigDecimal {
-    let original = input.clone();
-    let mut output = input.clone().with_prec(PRECISION_DECIMALS);
-    while power > 1 {
-        power -= 1;
-        output.mul_assign(&original);
+fn power(input: &BigDecimal, power: usize) -> BigDecimal {
+    let original = Arc::new(input.clone());
+    let num_threads = 10; // Number of threads to use
+    let chunk_size = power / num_threads;
+    let remainder = power % num_threads;
+
+    let results = Arc::new(Mutex::new(Vec::new()));
+    let mut handles = vec![];
+
+    let progress_bar = Arc::new(Mutex::new(ProgressBar::new_with_eta(power)));
+    progress_bar.lock().unwrap().set_action("Generating Tribonacci", Color::Blue, Style::Bold);
+
+    for i in 0..num_threads {
+        let original = Arc::clone(&original);
+        let results = Arc::clone(&results);
+        let chunk = if i == num_threads - 1 {
+            chunk_size + remainder
+        } else {
+            chunk_size
+        };
+
+        let progress_bar_clone = Arc::clone(&progress_bar);
+        let handle = thread::spawn(move || {
+            let mut result = BigDecimal::one();
+            for _ in 0..chunk {
+                result = result.with_prec(PRECISION_DECIMALS);
+                result.mul_assign(&*original);
+                progress_bar_clone.lock().unwrap().inc();
+            }
+            results.lock().unwrap().push(result);
+        });
+
+        handles.push(handle);
     }
-    output
+
+    for handle in handles {
+        handle.join().unwrap();
+    }
+
+    let mut final_result = BigDecimal::one();
+    for result in results.lock().unwrap().iter() {
+        final_result = final_result.with_prec(PRECISION_DECIMALS);
+        final_result.mul_assign(result);
+    }
+
+    progress_bar.lock().unwrap().print_final_info(
+        "Success",
+        &*"Loaded Tribonacci Sequence".to_string(),
+        Color::Green,
+        Style::Bold,
+    );
+
+    final_result
 }
 
 fn big_decimal_to_big_int(decimal: &BigDecimal) -> BigUint {
