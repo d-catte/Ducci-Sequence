@@ -1,14 +1,23 @@
 #![feature(string_remove_matches)]
 #![feature(integer_atomics)]
 
+use bigdecimal::BigDecimal;
 use chrono::Local;
+use num_bigint::{BigUint, ToBigInt};
+use progress_bar::{
+    Color, Style, inc_progress_bar, init_progress_bar, print_progress_bar_info,
+    set_progress_bar_action,
+};
 use rand::Rng;
 use std::fs::OpenOptions;
 use std::io::Write;
+use std::ops::{Add, Div, Mul, MulAssign, Sub};
 use std::sync::atomic::AtomicU128;
-use std::sync::{Arc, Mutex};
-use std::{fs, thread};
+use std::sync::{Arc, LazyLock, Mutex};
+use std::{fs, i32, thread};
 use text_io::read;
+
+const USE_GOLDEN_RATIO: bool = true;
 
 fn main() {
     print!("Select Part (A/B)");
@@ -16,36 +25,60 @@ fn main() {
 
     if part.to_uppercase() == "A" {
         const MAX_TRIB_INDEX: i32 = 72;
+        const MAX_TRIB_INDEX_BIG_INT: u128 = 6;
         println!("Max Iterations? (Y/N)");
         let choice: String = read!();
         let max_iterations: bool = choice.to_uppercase() == "Y";
+        println!("Big Int? (Y/N)");
+        let choice: String = read!();
+        let big_int: bool = choice.to_uppercase() == "Y";
 
-        loop {
-            let mut values: Vec<u64> = vec![0; 4];
-            println!("4 Random Values");
-            fill_array_rand(&mut values);
-            println!("Iteration 1: {:?}", values);
-            let _ = iterate(&mut values, true);
-            print!("\n");
+        if big_int {
+            loop {
+                let mut values: Vec<BigUint> = Vec::new();
+                println!("4 Consecutive Tribonacci Values");
+                if max_iterations {
+                    fill_array_set_trib_big_int(&mut values, MAX_TRIB_INDEX_BIG_INT);
+                } else {
+                    fill_array_trib_big_int(&mut values);
+                }
+                println!("Iteration 1: {:?}", values);
+                let output = iterate_big_int(&mut values, false);
+                println!("Iterations: {}", output.1);
 
-            values.clear();
-            println!("4 Consecutive Tribonacci Values");
-            if max_iterations {
-                fill_array_set_trib(&mut values, MAX_TRIB_INDEX);
-            } else {
-                fill_array_trib(&mut values);
+                println!("Run Again? (Y/N)");
+                let again: String = read!();
+                if again.to_uppercase() != "Y" {
+                    break;
+                }
             }
-            println!("Iteration 1: {:?}", values);
-            let _ = iterate(&mut values, true);
+        } else {
+            loop {
+                let mut values: Vec<u64> = vec![0; 4];
+                println!("4 Random Values");
+                fill_array_rand(&mut values);
+                println!("Iteration 1: {:?}", values);
+                let _ = iterate(&mut values, true);
+                print!("\n");
 
-            println!("Run Again? (Y/N)");
-            let again: String = read!();
+                values.clear();
+                println!("4 Consecutive Tribonacci Values");
+                if max_iterations {
+                    fill_array_set_trib(&mut values, MAX_TRIB_INDEX);
+                } else {
+                    fill_array_trib(&mut values);
+                }
+                println!("Iteration 1: {:?}", values);
+                let _ = iterate(&mut values, true);
 
-            if again.to_uppercase() != "Y" {
-                break;
+                println!("Run Again? (Y/N)");
+                let again: String = read!();
+
+                if again.to_uppercase() != "Y" {
+                    break;
+                }
             }
         }
-
     } else {
         let threads: u8;
         print!("Number of threads: ");
@@ -83,15 +116,22 @@ fn main() {
                         }
                     }
 
-                    let final_output: String = "Length ".to_owned() + &*n_size.to_string() + &*" Largest: ".to_owned() + &*largest.0 + "\n";
-                    file_clone.lock().unwrap().write_all(final_output.as_bytes()).unwrap();
+                    let final_output: String = "Length ".to_owned()
+                        + &*n_size.to_string()
+                        + &*" Largest: ".to_owned()
+                        + &*largest.0
+                        + "\n";
+                    file_clone
+                        .lock()
+                        .unwrap()
+                        .write_all(final_output.as_bytes())
+                        .unwrap();
                     println!("{} Has Completed", n_size);
                 }
             });
         }
 
-        loop {
-        }
+        loop {}
     }
 }
 
@@ -126,6 +166,15 @@ fn fill_array_set_trib(values: &mut Vec<u64>, index: i32) {
     values.append(&mut generate_trib_sequence(index));
 }
 
+fn fill_array_trib_big_int(values: &mut Vec<BigUint>) {
+    let random_index = rand::rng().random_range(0..=u128::MAX);
+    fill_array_set_trib_big_int(values, random_index);
+}
+
+fn fill_array_set_trib_big_int(values: &mut Vec<BigUint>, index: u128) {
+    values.append(&mut generate_trib_squence_big_int(index, USE_GOLDEN_RATIO));
+}
+
 /// Gets the 4th tribanocci values after the start index (including the start index)
 fn generate_trib_sequence(start_index: i32) -> Vec<u64> {
     let mut previous_vals: [u64; 3] = [0, 0, 1];
@@ -143,6 +192,129 @@ fn generate_trib_sequence(start_index: i32) -> Vec<u64> {
         }
     }
     return_vals
+}
+
+fn generate_trib_squence_big_int(start_index: u128, experimental: bool) -> Vec<BigUint> {
+    if !experimental {
+        init_progress_bar((start_index + 3) as usize);
+        set_progress_bar_action("Generating Tribonacci", Color::Blue, Style::Bold);
+    }
+    let mut previous_vals: [BigUint; 3] = [BigUint::ZERO, BigUint::ZERO, BigUint::from(1_u8)];
+    let mut return_vals: Vec<BigUint> = if experimental {
+        generate_trib_golden_ratio_big_int(start_index)
+    } else {
+        vec![BigUint::ZERO, BigUint::ZERO, BigUint::from(1_u8)]
+    };
+    if !experimental {
+        for i in 3..=start_index + 3 {
+            let next_val = &previous_vals[0] + &previous_vals[1] + &previous_vals[2];
+
+            let (first, rest) = previous_vals.split_at_mut(1);
+            let (second, third) = rest.split_at_mut(1);
+
+            first[0] = std::mem::replace(
+                &mut second[0],
+                std::mem::replace(&mut third[0], next_val.clone()),
+            );
+
+            if i >= start_index {
+                if return_vals.len() >= 4 {
+                    return_vals.remove(0);
+                }
+                return_vals.push(next_val);
+            }
+            inc_progress_bar();
+        }
+        print_progress_bar_info(
+            "Success",
+            &*format!("Loaded {} Tribonacci Indexes", start_index + 3),
+            Color::Green,
+            Style::Bold,
+        );
+    }
+    return_vals
+}
+
+static A_PLUS: LazyLock<BigDecimal> = LazyLock::new(|| {
+    let nineteen = BigDecimal::from(9u8);
+    let three = BigDecimal::from(3u8);
+    let thirtythree = BigDecimal::from(33u8);
+    nineteen
+        .add(three.mul(thirtythree.sqrt().unwrap()))
+        .cbrt()
+        .with_prec(u64::MAX)
+});
+
+static A_MINUS: LazyLock<BigDecimal> = LazyLock::new(|| {
+    let nineteen = BigDecimal::from(9u8);
+    let three = BigDecimal::from(3u8);
+    let thirtythree = BigDecimal::from(33u16);
+    nineteen
+        .sub(three.mul(thirtythree.sqrt().unwrap()))
+        .cbrt()
+        .with_prec(u64::MAX)
+});
+
+static B: LazyLock<BigDecimal> = LazyLock::new(|| {
+    let five_hundred_eighty_six = BigDecimal::from(586u16);
+    let one_hundred_two = BigDecimal::from(102u16);
+    let thirtythree = BigDecimal::from(33u8);
+    five_hundred_eighty_six
+        .add(one_hundred_two.mul(thirtythree.sqrt().unwrap()))
+        .cbrt()
+        .with_prec(u64::MAX)
+});
+
+static DENOMINATOR: LazyLock<BigDecimal> = LazyLock::new(|| {
+    let two = BigDecimal::from(2u8);
+    let four = BigDecimal::from(4u8);
+    B.square().sub(two.mul(&*B)).add(four).with_prec(u64::MAX)
+});
+
+static NUMERATOR: LazyLock<BigDecimal> = LazyLock::new(|| {
+    let one = BigDecimal::from(1u8);
+    let one_third = one.clone().div(BigDecimal::from(3u8)).with_prec(u64::MAX);
+    one_third
+        .mul(&(A_PLUS.clone() + &*A_MINUS + one))
+        .with_prec(u64::MAX)
+});
+
+static COEFF: LazyLock<BigDecimal> = LazyLock::new(|| {
+    let three = BigDecimal::from(3u8);
+    three.mul(&*B).with_prec(u64::MAX)
+});
+
+/// Generates the tribonacci sequence using the Golden Ratio
+fn generate_trib_golden_ratio_big_int(start_index: u128) -> Vec<BigUint> {
+    let mut return_vals: Vec<BigUint> = Vec::new();
+    for i in start_index..start_index + 3 {
+        return_vals.push(big_decimal_to_big_int(
+            &(COEFF
+                .clone()
+                .mul(power(&*NUMERATOR, i as usize).div(&*DENOMINATOR))
+                .with_prec(u64::MAX)),
+        ));
+    }
+    return_vals
+}
+
+fn power(input: &BigDecimal, mut power: usize) -> BigDecimal {
+    let original = input.clone();
+    let mut output = input.clone().with_prec(u64::MAX);
+    while power > 1 {
+        power -= 1;
+        output.mul_assign(&original);
+    }
+    output
+}
+
+fn big_decimal_to_big_int(decimal: &BigDecimal) -> BigUint {
+    let val = decimal.round(i64::MAX);
+    if val.is_integer() {
+        BigUint::try_from(val.to_bigint().unwrap()).unwrap()
+    } else {
+        BigUint::ZERO
+    }
 }
 
 /// Fill with binary value
@@ -179,10 +351,34 @@ fn iterate(values: &mut Vec<u64>, debug: bool) -> (String, i32) {
     (saved, iter)
 }
 
+fn iterate_big_int(values: &mut Vec<BigUint>, debug: bool) -> (String, i128) {
+    let mut saved: String = String::from(format!("{:?}", values) + " : ");
+    let mut iter: i128 = 1;
+    while !is_zero_big_int(values) {
+        iter += 1;
+        subtract_big_int(values);
+        if debug {
+            println!("Iteration {}: {:?}", iter, values);
+        }
+    }
+    saved += &iter.to_string();
+    saved += "\n";
+    (saved, iter)
+}
+
 /// Checks if all values are zero
 fn is_zero(values: &Vec<u64>) -> bool {
     for i in 0..values.len() {
         if values[i] != 0 {
+            return false;
+        }
+    }
+    true
+}
+
+fn is_zero_big_int(values: &Vec<BigUint>) -> bool {
+    for i in 0..values.len() {
+        if values[i] != BigUint::ZERO {
             return false;
         }
     }
@@ -198,6 +394,25 @@ fn subtract(values: &mut Vec<u64>) {
             values[i] = (values[i] as i128 - values[i + 1] as i128).abs() as u64;
         } else {
             values[i] = (values[i] as i128 - original_val as i128).abs() as u64;
+        }
+    }
+}
+
+fn subtract_big_int(values: &mut Vec<BigUint>) {
+    let original_val: BigUint = values[0].clone();
+    for i in 0..values.len() {
+        if i + 1 < values.len() {
+            values[i] = values[i]
+                .clone()
+                .max(values[i + 1].clone())
+                .clone()
+                .sub(values[i + 1].clone().min(values[i].clone()).clone());
+        } else {
+            values[i] = values[i]
+                .clone()
+                .max(original_val.clone())
+                .clone()
+                .sub(original_val.clone().min(values[i].clone()).clone());
         }
     }
 }
