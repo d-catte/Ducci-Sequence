@@ -18,14 +18,15 @@ use std::{fs, i32, thread};
 use text_io::read;
 
 const USE_GOLDEN_RATIO: bool = true;
+const MAX_TRIB_INDEX: i32 = 72;
+const MAX_TRIB_INDEX_BIG_INT: u128 = u16::MAX as u128;
+const PRECISION_DECIMALS: u64 = 200;
 
 fn main() {
     print!("Select Part (A/B)");
     let part: String = read!();
 
     if part.to_uppercase() == "A" {
-        const MAX_TRIB_INDEX: i32 = 72;
-        const MAX_TRIB_INDEX_BIG_INT: u128 = 6;
         println!("Max Iterations? (Y/N)");
         let choice: String = read!();
         let max_iterations: bool = choice.to_uppercase() == "Y";
@@ -236,23 +237,23 @@ fn generate_trib_squence_big_int(start_index: u128, experimental: bool) -> Vec<B
 }
 
 static A_PLUS: LazyLock<BigDecimal> = LazyLock::new(|| {
-    let nineteen = BigDecimal::from(9u8);
+    let nineteen = BigDecimal::from(19u8);
     let three = BigDecimal::from(3u8);
     let thirtythree = BigDecimal::from(33u8);
     nineteen
         .add(three.mul(thirtythree.sqrt().unwrap()))
         .cbrt()
-        .with_prec(u64::MAX)
+        .with_prec(PRECISION_DECIMALS)
 });
 
 static A_MINUS: LazyLock<BigDecimal> = LazyLock::new(|| {
-    let nineteen = BigDecimal::from(9u8);
+    let nineteen = BigDecimal::from(19u8);
     let three = BigDecimal::from(3u8);
     let thirtythree = BigDecimal::from(33u16);
     nineteen
         .sub(three.mul(thirtythree.sqrt().unwrap()))
         .cbrt()
-        .with_prec(u64::MAX)
+        .with_prec(PRECISION_DECIMALS)
 });
 
 static B: LazyLock<BigDecimal> = LazyLock::new(|| {
@@ -262,37 +263,37 @@ static B: LazyLock<BigDecimal> = LazyLock::new(|| {
     five_hundred_eighty_six
         .add(one_hundred_two.mul(thirtythree.sqrt().unwrap()))
         .cbrt()
-        .with_prec(u64::MAX)
+        .with_prec(PRECISION_DECIMALS)
 });
 
 static DENOMINATOR: LazyLock<BigDecimal> = LazyLock::new(|| {
     let two = BigDecimal::from(2u8);
     let four = BigDecimal::from(4u8);
-    B.square().sub(two.mul(&*B)).add(four).with_prec(u64::MAX)
+    B.square().sub(two.mul(&*B)).add(four).with_prec(PRECISION_DECIMALS)
 });
 
 static NUMERATOR: LazyLock<BigDecimal> = LazyLock::new(|| {
     let one = BigDecimal::from(1u8);
-    let one_third = one.clone().div(BigDecimal::from(3u8)).with_prec(u64::MAX);
+    let one_third = one.clone().div(BigDecimal::from(3u8)).with_prec(PRECISION_DECIMALS);
     one_third
         .mul(&(A_PLUS.clone() + &*A_MINUS + one))
-        .with_prec(u64::MAX)
+        .with_prec(PRECISION_DECIMALS)
 });
 
 static COEFF: LazyLock<BigDecimal> = LazyLock::new(|| {
     let three = BigDecimal::from(3u8);
-    three.mul(&*B).with_prec(u64::MAX)
+    three.mul(&*B).with_prec(PRECISION_DECIMALS)
 });
 
 /// Generates the tribonacci sequence using the Golden Ratio
 fn generate_trib_golden_ratio_big_int(start_index: u128) -> Vec<BigUint> {
     let mut return_vals: Vec<BigUint> = Vec::new();
-    for i in start_index..start_index + 3 {
+    for i in start_index..=(start_index + 3) {
         return_vals.push(big_decimal_to_big_int(
             &(COEFF
                 .clone()
                 .mul(power(&*NUMERATOR, i as usize).div(&*DENOMINATOR))
-                .with_prec(u64::MAX)),
+                .with_prec(PRECISION_DECIMALS)),
         ));
     }
     return_vals
@@ -300,7 +301,7 @@ fn generate_trib_golden_ratio_big_int(start_index: u128) -> Vec<BigUint> {
 
 fn power(input: &BigDecimal, mut power: usize) -> BigDecimal {
     let original = input.clone();
-    let mut output = input.clone().with_prec(u64::MAX);
+    let mut output = input.clone().with_prec(PRECISION_DECIMALS);
     while power > 1 {
         power -= 1;
         output.mul_assign(&original);
@@ -309,7 +310,7 @@ fn power(input: &BigDecimal, mut power: usize) -> BigDecimal {
 }
 
 fn big_decimal_to_big_int(decimal: &BigDecimal) -> BigUint {
-    let val = decimal.round(i64::MAX);
+    let val = decimal.round(0);
     if val.is_integer() {
         BigUint::try_from(val.to_bigint().unwrap()).unwrap()
     } else {
