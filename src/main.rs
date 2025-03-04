@@ -15,8 +15,13 @@ fn main() {
     let part: String = read!();
 
     if part.to_uppercase() == "A" {
+        const MAX_TRIB_INDEX: i32 = 72;
+        println!("Max Iterations? (Y/N)");
+        let choice: String = read!();
+        let max_iterations: bool = choice.to_uppercase() == "Y";
+
         loop {
-            let mut values: Vec<u32> = vec![0; 4];
+            let mut values: Vec<u64> = vec![0; 4];
             println!("4 Random Values");
             fill_array_rand(&mut values);
             println!("Iteration 1: {:?}", values);
@@ -25,7 +30,11 @@ fn main() {
 
             values.clear();
             println!("4 Consecutive Tribonacci Values");
-            fill_array_trib(&mut values);
+            if max_iterations {
+                fill_array_set_trib(&mut values, MAX_TRIB_INDEX);
+            } else {
+                fill_array_trib(&mut values);
+            }
             println!("Iteration 1: {:?}", values);
             let _ = iterate(&mut values, true);
 
@@ -60,7 +69,7 @@ fn main() {
                 loop {
                     let n_size = n_counter_clone.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                     let count = 2_u128.pow(n_size as u32);
-                    let mut values: Vec<u32> = vec![0; n_size as usize];
+                    let mut values: Vec<u64> = vec![0; n_size as usize];
                     let mut result = String::new();
                     let mut largest: (String, i32) = (String::new(), 0);
 
@@ -100,22 +109,27 @@ fn get_filename() -> String {
 }
 
 /// Fills the array with randomized values
-fn fill_array_rand(values: &mut Vec<u32>) {
+fn fill_array_rand(values: &mut Vec<u64>) {
     for i in 0..values.len() {
         values[i] = rand::rng().random_range(0..10000);
     }
 }
 
 /// Fill with random consecutive Tribannoci values
-fn fill_array_trib(values: &mut Vec<u32>) {
-    let random_index = rand::rng().random_range(0..25);
-    values.append(&mut generate_trib_sequence(random_index));
+fn fill_array_trib(values: &mut Vec<u64>) {
+    let random_index = rand::rng().random_range(0..=72);
+    fill_array_set_trib(values, random_index);
+}
+
+/// Fill with a set index of the Tribannoci sequence
+fn fill_array_set_trib(values: &mut Vec<u64>, index: i32) {
+    values.append(&mut generate_trib_sequence(index));
 }
 
 /// Gets the 4th tribanocci values after the start index (including the start index)
-fn generate_trib_sequence(start_index: i32) -> Vec<u32> {
-    let mut previous_vals: [u32; 3] = [0, 0, 1];
-    let mut return_vals: Vec<u32> = vec![0, 0, 1];
+fn generate_trib_sequence(start_index: i32) -> Vec<u64> {
+    let mut previous_vals: [u64; 3] = [0, 0, 1];
+    let mut return_vals: Vec<u64> = vec![0, 0, 1];
     for i in 3..=start_index + 3 {
         let next_val = previous_vals[0] + previous_vals[1] + previous_vals[2];
         previous_vals[0] = previous_vals[1];
@@ -132,7 +146,7 @@ fn generate_trib_sequence(start_index: i32) -> Vec<u32> {
 }
 
 /// Fill with binary value
-fn fill_array_inc(values: &mut Vec<u32>, count: u128, n_size: u128) {
+fn fill_array_inc(values: &mut Vec<u64>, count: u128, n_size: u128) {
     values.clear();
     let string = format!("{count:b}");
     let sign_extend = n_size - string.len() as u128;
@@ -144,13 +158,13 @@ fn fill_array_inc(values: &mut Vec<u32>, count: u128, n_size: u128) {
     };
 
     for char in sign_extended_string.chars() {
-        values.push(char as u32 - 48);
+        values.push(char as u64 - 48);
     }
 }
 
 /// Iterates through the array.
 /// Subtracts until all values are 0
-fn iterate(values: &mut Vec<u32>, debug: bool) -> (String, i32) {
+fn iterate(values: &mut Vec<u64>, debug: bool) -> (String, i32) {
     let mut saved: String = String::from(format!("{:?}", values) + " : ");
     let mut iter: i32 = 1;
     while !is_zero(values) {
@@ -166,7 +180,7 @@ fn iterate(values: &mut Vec<u32>, debug: bool) -> (String, i32) {
 }
 
 /// Checks if all values are zero
-fn is_zero(values: &Vec<u32>) -> bool {
+fn is_zero(values: &Vec<u64>) -> bool {
     for i in 0..values.len() {
         if values[i] != 0 {
             return false;
@@ -177,13 +191,13 @@ fn is_zero(values: &Vec<u32>) -> bool {
 
 /// Subtracts the next array value from the previous one.
 /// Wraps around once hitting the end
-fn subtract(values: &mut Vec<u32>) {
-    let original_val: u32 = values[0];
+fn subtract(values: &mut Vec<u64>) {
+    let original_val: u64 = values[0];
     for i in 0..values.len() {
         if i + 1 < values.len() {
-            values[i] = (values[i] as i64 - values[i + 1] as i64).abs() as u32;
+            values[i] = (values[i] as i128 - values[i + 1] as i128).abs() as u64;
         } else {
-            values[i] = (values[i] as i64 - original_val as i64).abs() as u32;
+            values[i] = (values[i] as i128 - original_val as i128).abs() as u64;
         }
     }
 }
