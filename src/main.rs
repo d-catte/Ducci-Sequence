@@ -36,6 +36,7 @@ fn main() {
         let big_int: bool = choice.to_uppercase() == "Y";
 
         if big_int {
+            // Part A Big Int
             loop {
                 let mut values: Vec<BigUint> = Vec::new();
                 println!("4 Consecutive Tribonacci Values");
@@ -55,6 +56,7 @@ fn main() {
                 }
             }
         } else {
+            // Part A Non-BigInt
             loop {
                 let mut values: Vec<u64> = vec![0; 4];
                 println!("4 Random Values");
@@ -82,6 +84,7 @@ fn main() {
             }
         }
     } else {
+        // Part B
         let threads: u8;
         print!("Number of threads: ");
         threads = read!();
@@ -96,6 +99,38 @@ fn main() {
                 .unwrap(),
         ));
 
+        /// TODO skip non-powers of two
+        loop {
+            let n_size = n_counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            let count = 2_u128.pow(n_size as u32);
+            let mut values: Vec<u64> = vec![0; n_size as usize];
+            let mut result = String::new();
+            let mut largest: (String, i32) = (String::new(), 0);
+
+            for i in 0..count {
+                fill_array_binary(&mut values, i, n_size);
+                let output = iterate(&mut values, false);
+                result += &*output.0;
+
+                if largest.1 < output.1 {
+                    largest = output;
+                }
+            }
+
+            let final_output: String = "Length ".to_owned()
+                + &*n_size.to_string()
+                + &*" Largest: ".to_owned()
+                + &*largest.0
+                + "\n";
+            file
+                .lock()
+                .unwrap()
+                .write_all(final_output.as_bytes())
+                .unwrap();
+            println!("{} Has Completed", n_size);
+        }
+
+        /*
         for thread in 0..threads {
             let n_counter_clone = Arc::clone(&n_counter);
             let file_clone = Arc::clone(&file);
@@ -133,7 +168,7 @@ fn main() {
             });
         }
 
-        loop {}
+         */
     }
 }
 
@@ -365,7 +400,7 @@ fn big_decimal_to_big_int(decimal: &BigDecimal) -> BigUint {
 }
 
 /// Fill with binary value
-fn fill_array_inc(values: &mut Vec<u64>, count: u128, n_size: u128) {
+fn fill_array_binary(values: &mut Vec<u64>, count: u128, n_size: u128) {
     values.clear();
     let string = format!("{count:b}");
     let sign_extend = n_size - string.len() as u128;
