@@ -1,5 +1,4 @@
 #![feature(string_remove_matches)]
-#![feature(integer_atomics)]
 
 use bigdecimal::{BigDecimal, One};
 use chrono::Local;
@@ -304,7 +303,7 @@ fn generate_trib_golden_ratio_big_int(start_index: u128) -> Vec<BigUint> {
         return_vals.push(big_decimal_to_big_int(
             &(COEFF
                 .clone()
-                .mul(power(&*NUMERATOR, i as usize).div(&*DENOMINATOR))
+                .mul(power(&NUMERATOR, i as usize).div(&*DENOMINATOR))
                 .with_prec(PRECISION_DECIMALS)),
         ));
     }
@@ -377,7 +376,7 @@ fn fill_array_binary(values: &mut Vec<u64>, count: u128, n_size: u64) {
 /// Iterates through the array.
 /// Subtracts until all values are 0
 fn iterate(values: &mut Vec<u64>, debug: bool) -> (String, i32) {
-    let mut saved: String = String::from(format!("{:?}", values) + " : ");
+    let mut saved: String = format!("{:?}", values) + " : ";
     let mut iter: i32 = 1;
     while !is_zero(values) {
         iter += 1;
@@ -426,7 +425,7 @@ fn get_storage_str(values: &mut Vec<u64>) -> String {
 
 /// Same as iterate, but compatible with BigUint
 fn iterate_big_int(values: &mut Vec<BigUint>, debug: bool) -> (String, i128) {
-    let mut saved: String = String::from(format!("{:?}", values) + " : ");
+    let mut saved: String = format!("{:?}", values) + " : ";
     let mut iter: i128 = 1;
     while !is_zero_big_int(values) {
         iter += 1;
@@ -466,9 +465,9 @@ fn subtract(values: &mut Vec<u64>) {
     let original_val: u64 = values[0];
     for i in 0..values.len() {
         if i + 1 < values.len() {
-            values[i] = (values[i] as i128 - values[i + 1] as i128).abs() as u64;
+            values[i] = (values[i] as i128 - values[i + 1] as i128).unsigned_abs() as u64;
         } else {
-            values[i] = (values[i] as i128 - original_val as i128).abs() as u64;
+            values[i] = (values[i] as i128 - original_val as i128).unsigned_abs() as u64;
         }
     }
 }
