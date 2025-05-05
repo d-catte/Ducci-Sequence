@@ -37,7 +37,7 @@ fn main() {
         let choice: String = read!();
         let max_iterations: bool = choice.to_uppercase() == "Y";
         print!(
-            "Big Int:\nBig Int enables extreme levels of precision (2^2^31 - 1 values) at the cost of computational time and resource usage.\n(Y/N): "
+            "Big Int (Experimental):\nBig Int enables extreme levels of precision (2^2^31 - 1 values) at the cost of computational time and resource usage.\n(Y/N): "
         );
         let choice: String = read!();
         let big_int: bool = choice.to_uppercase() == "Y";
