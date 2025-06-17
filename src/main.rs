@@ -181,7 +181,7 @@ fn fill_array_trib_big_int(values: &mut Vec<BigUint>) {
 
 /// Same as fill_array_set_trib, but compatible with BigUint
 fn fill_array_set_trib_big_int(values: &mut Vec<BigUint>, index: u128) {
-    values.append(&mut generate_trib_squence_big_int(index, USE_GOLDEN_RATIO));
+    values.append(&mut generate_trib_sequence_big_int(index, USE_GOLDEN_RATIO));
 }
 
 /// Gets the 4th tribanocci values after the start index (including the start index)
@@ -205,7 +205,7 @@ fn generate_trib_sequence(start_index: i32) -> Vec<u64> {
 
 /// Generates the tribonacci sequence with BigUint precision
 /// Compatible with Tribonacci Golden Ratio
-fn generate_trib_squence_big_int(start_index: u128, experimental: bool) -> Vec<BigUint> {
+fn generate_trib_sequence_big_int(start_index: u128, experimental: bool) -> Vec<BigUint> {
     let mut previous_vals: [BigUint; 3] = [BigUint::ZERO, BigUint::ZERO, BigUint::from(1_u8)];
     let mut return_vals: Vec<BigUint> = if experimental {
         generate_trib_golden_ratio_big_int(start_index)
@@ -261,9 +261,9 @@ static A_MINUS: LazyLock<BigDecimal> = LazyLock::new(|| {
 static B: LazyLock<BigDecimal> = LazyLock::new(|| {
     let five_hundred_eighty_six = BigDecimal::from(586u16);
     let one_hundred_two = BigDecimal::from(102u16);
-    let thirtythree = BigDecimal::from(33u8);
+    let thirty_three = BigDecimal::from(33u8);
     five_hundred_eighty_six
-        .add(one_hundred_two.mul(thirtythree.sqrt().unwrap()))
+        .add(one_hundred_two.mul(thirty_three.sqrt().unwrap()))
         .cbrt()
         .with_prec(PRECISION_DECIMALS)
 });
